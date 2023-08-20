@@ -150,8 +150,8 @@ def coefficients():
 
 
 # prints()
-# generators()
-# consumers()
-consumer_sum()
+generators()
+consumers()
+# consumer_sum()
 # test_on()
 # coefficients()
