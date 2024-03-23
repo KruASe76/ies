@@ -65,7 +65,7 @@ BATTERY: List[StorageTransaction] = [
 
 
 if psm.tick == 1:
-    if "chetverochka_temp.json" in os.walk("."):
+    if "chetverochka_temp.json" in os.walk(".."):
         os.remove("chetverochka_temp.json")
     json_data = {"power_delta": [], "line_off": [], "market": dict.fromkeys(map(str, range(110)), 0)}
 else:

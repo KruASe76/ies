@@ -5,8 +5,8 @@ import csv
 from pprint import pprint
 
 
-forecast_path = Path("forecast_prod_2.csv")
-logs_path = Path("logs_prod_2.json")
+forecast_path = Path("forecasts/forecast_prod_2.csv")
+logs_path = Path("logs/logs_prod_2.json")
 ticks = range(1, 101)
 
 
@@ -110,8 +110,8 @@ def test_on():
 
 def coefficients():
     for forecast_path, logs_path, index in zip(
-            (Path("forecast_prod_1.csv"),),
-            (Path("logs_prod_1.json"),),
+            (Path("forecasts/forecast_prod_1.csv"),),
+            (Path("logs/logs_prod_1.json"),),
         range(1, 2)
     ):
         with open(forecast_path, "r") as csv_file:

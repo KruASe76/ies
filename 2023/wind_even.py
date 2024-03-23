@@ -7,7 +7,7 @@ def mean(iterable):
     return sum(iterable) / len(iterable)
 
 
-csv_path = Path("forecast_test_4.csv")
+csv_path = Path("forecasts/forecast_test_4.csv")
 ticks = range(1, 101)
 
 with open(csv_path, "r") as csv_file:

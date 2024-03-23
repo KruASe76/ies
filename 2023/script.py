@@ -63,7 +63,7 @@ BATTERY: List[StorageTransaction] = [
 
 
 if psm.tick == 1:
-    if "chetverochka_temp.json" in os.walk("."):
+    if "chetverochka_temp.json" in os.walk(".."):
         os.remove("chetverochka_temp.json")
     json_data = {"power_delta": [], "line_off": [], "market": dict.fromkeys(map(str, range(110)), 0)}
 else:
@@ -98,7 +98,6 @@ for station in filter(lambda obj: obj.type in ("main", "miniA", "miniB"), psm.ob
         if not json_data["line_off"] and network.wear >= WEAR_LIMIT:
             json_data["line_off"] = [station.address[0], line_number]
             print(f"planned off: {station.address[0]} {line_number}")
-            is_off_planned = True
 
 
 if line_to_off:  # ..._left turned on
@@ -145,11 +144,6 @@ for transaction in BATTERY:
                 each = min(min(-transaction.amount / len(storages_left), 15), storage.charge.now)
                 psm.orders.discharge(storage.address[0], each)
                 print(f"discharged {storage.address[0]} by {each}")
-
-
-psm.orders.add_graph(0, psm.forecasts.sun)
-for index, solar in enumerate(filter(lambda obj: obj.type == "solar", psm.objects), start=1):
-    psm.orders.add_graph(index, list(map(lambda line: line.generated, solar.power.then + [solar.power.now])))
 
 
 with open("chetverochka_temp.json", "w", encoding="utf-8") as file:
