@@ -24,7 +24,6 @@ class StorageTransaction:
 
 psm = ips.init()
 
-
 WEAR_LIMIT = 0.45
 
 MARKET: List[MarketOffer] = [
@@ -61,7 +60,6 @@ BATTERY: List[StorageTransaction] = [
     # StorageTransaction(0, 100, -5, False)
 ]
 
-
 if psm.tick == 1:
     if "chetverochka_temp.json" in os.walk(".."):
         os.remove("chetverochka_temp.json")
@@ -70,15 +68,12 @@ else:
     with open("chetverochka_temp.json", "r", encoding="utf-8") as file:
         json_data = json.load(file)
 
-
 storages = list(filter(lambda obj: obj.type == "storage", psm.objects))
-
 
 line_to_off = None
 if json_data["line_off"]:
     line_to_off = json_data["line_off"]
     json_data["line_off"] = []
-
 
 for station in filter(lambda obj: obj.type in ("main", "miniA", "miniB"), psm.objects):
     for line_number in range(1, 3 if station.type == "miniB" else 4):
@@ -99,7 +94,6 @@ for station in filter(lambda obj: obj.type in ("main", "miniA", "miniB"), psm.ob
             json_data["line_off"] = [station.address[0], line_number]
             print(f"planned off: {station.address[0]} {line_number}")
 
-
 if line_to_off:  # ..._left turned on
     psm.orders.line_off(*line_to_off)
     print(f"line off: {' '.join(map(str, line_to_off))}")
@@ -115,11 +109,9 @@ if line_to_off:  # ..._left turned on
     for storage in storages_left:
         psm.orders.discharge(storage.address[0], min(min(wanted, 15), storage.charge.now))
 
-
 power_delta = psm.total_power.generated - psm.total_power.consumed - psm.total_power.losses
 json_data["power_delta"].append(power_delta)
 print(f"POWER DELTA: {power_delta}")
-
 
 for offer in MARKET:
     if offer.start_tick <= psm.tick < offer.end_tick:
@@ -145,14 +137,11 @@ for transaction in BATTERY:
                 psm.orders.discharge(storage.address[0], each)
                 print(f"discharged {storage.address[0]} by {each}")
 
-
 with open("chetverochka_temp.json", "w", encoding="utf-8") as file:
     json.dump(json_data, file, indent=4)
 
-
 if psm.tick == 100:
     os.remove("chetverochka_temp.json")
-
 
 print()
 for storage in storages:
@@ -164,7 +153,8 @@ print(f"Потребление: {psm.total_power.consumed}")
 print(f"Потери: {psm.total_power.losses}")
 print(f"Биржа: {psm.total_power.external}")
 
+# noinspection PyBroadException
 try:
     psm.save_and_exit()
-except:
+except Exception:
     pass
