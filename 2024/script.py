@@ -1,8 +1,9 @@
 import ips
 from dataclasses import dataclass
 from typing import List
-from itertools import chain
 from math import e
+import os
+import json
 
 
 psm = ips.init()
@@ -51,31 +52,46 @@ MARKET_OFFERS: List[MarketOffer] = [
     # продажа финал
     MarketOffer(85, 95, -5, optimal_price(psm.tick, -1), False),
     # стабильная продажа
-    # MarketOffer(0, 100, -5, psm.tick, False),
-    # MarketOffer(0, 100, -5, psm.tick, False),
-    # MarketOffer(0, 100, -5, psm.tick, False)
+    # MarketOffer(0, 100, -5, optimal_price(psm.tick, -1), False),
+    # MarketOffer(0, 100, -5, optimal_price(psm.tick, -1), False),
+    # MarketOffer(0, 100, -5, optimal_price(psm.tick, -1), False),
+    # стабильная покупка
+    # MarketOffer(0, 100, 5, optimal_price(psm.tick, +1), False),
+    # MarketOffer(0, 100, 5, optimal_price(psm.tick, +1), False),
+    # MarketOffer(0, 100, 5, optimal_price(psm.tick, +1), False),
 ]
 
 STORAGE_TRANSACTIONS: List[StorageTransaction] = [
     # зарядка день 1
-    StorageTransaction(21, 41, 10, ),
+    StorageTransaction(15, 41, 10, ),
     # разрядка ночь середина 1
     StorageTransaction(43, 58, -10, False),
     # разрядка ночь середина 2
-    StorageTransaction(58, 68, -5, False),
+    StorageTransaction(58, 68, -10, False),
     # зарядка день 2
-    StorageTransaction(70, 85, 10, ),
+    StorageTransaction(63, 89, 10, ),
     # разрядка на продажу финал
     StorageTransaction(85, 95, -10, False),
     # стабильная зарядка
     # StorageTransaction(0, 100, -5, False),
     # StorageTransaction(0, 100, -5, False),
-    # StorageTransaction(0, 100, -5, False)
+    # StorageTransaction(0, 100, -5, False),
 ]
 
 
-robo_start_angle = 50 - 22
-robo_end_angle = 50 + 35
+FILENAME = "chekanshchiki_temp.json"
+
+if psm.tick == 0:
+    if FILENAME in os.walk(".."):
+        os.remove(FILENAME)
+    json_data = {"market": [0] * 100}
+else:
+    with open(FILENAME, "r", encoding="utf-8") as file:
+        json_data = json.load(file)
+
+
+robo_start_angle = 50 - 40
+robo_end_angle = 50 + 28
 day_1_start = 6
 day_1_end = 49
 day_2_start = 54
@@ -88,7 +104,9 @@ robo_solars = tuple(filter(lambda obj: obj.type == "solarRobot", psm.objects))
 # storage_actions = {storage.address[0]: 0 for storage in storages}
 
 
-power_delta = psm.total_power.generated - psm.total_power.consumed - psm.total_power.losses
+power_delta = (
+        psm.total_power.generated - psm.total_power.consumed - psm.total_power.losses + json_data["market"][psm.tick]
+)
 # json_data["power_delta"].append(power_delta)
 print(f"POWER DELTA: {power_delta}")
 
@@ -105,13 +123,13 @@ for offer in MARKET_OFFERS:
         if offer.amount < 0 and (power_delta > 0 if offer.check else True):
             psm.orders.sell(-offer.amount, offer.price)
 
-            # json_data["market"][str(psm.tick + 2)] -= -offer.amount
+            json_data["market"][psm.tick + 2] -= -offer.amount
             print(f"sold {-offer.amount} for {offer.price} each")
 
         elif offer.amount > 0 and (power_delta < 0 if offer.check else True):
             psm.orders.buy(offer.amount, offer.price)
 
-            # json_data["market"][str(psm.tick + 2)] += offer.amount
+            json_data["market"][psm.tick + 2] += offer.amount
             print(f"bought {offer.amount} for {offer.price} each")
 
 
@@ -119,47 +137,52 @@ for transaction in STORAGE_TRANSACTIONS:
     if not transaction.start_tick <= psm.tick < transaction.end_tick:
         continue
 
-    capable_storages = tuple(
-        filter(
-            lambda storage: storage_current_power(storage) <= storage.charge.now if transaction.check else True,
-            storages
-        )
-    )
-    selected_storage = max(capable_storages, key=lambda storage: storage_current_power(storage))
+    # capable_storages = tuple(
+    #     filter(
+    #         lambda storage: storage_current_power(storage) <= storage.charge.now if transaction.check else True,
+    #         storages
+    #     )
+    # )
+    # selected_storage = max(capable_storages, key=lambda storage: storage_current_power(storage))
+    selected_storage = max(storages, key=lambda storage: storage.temp)
 
     if transaction.amount > 0 and (power_delta > 0 if transaction.check else True):
-        energy = min(transaction.amount, storage_current_power(selected_storage), 60 - selected_storage.charge.now)
+        # energy = min(transaction.amount, storage_current_power(selected_storage), 60 - selected_storage.charge.now)
+        energy = min(transaction.amount, 60 - selected_storage.charge.now)
 
         psm.orders.charge(selected_storage.address[0], energy)
         print(f"charged {selected_storage.address[0]} by {energy}")
 
     elif transaction.amount < 0 and (power_delta < 0 if transaction.check else True):
-        energy = min(-transaction.amount, storage_current_power(selected_storage), selected_storage.charge.now)
+        # energy = min(-transaction.amount, storage_current_power(selected_storage), selected_storage.charge.now)
+        energy = min(-transaction.amount, selected_storage.charge.now)
 
         psm.orders.discharge(selected_storage.address[0], energy)
         print(f"discharged {selected_storage.address[0]} by {energy}")
 
 
 # rotating suns
-if psm.tick not in tuple(chain(range(day_1_start, day_1_end + 1), range(day_2_start, day_2_end + 1))):
-    for robo_solar in robo_solars:
+for robo_solar in robo_solars:
+    if psm.tick not in range(day_1_start, day_1_end + 1) and psm.tick not in range(day_2_start, day_2_end + 1):
         psm.orders.robot(robo_solar.address[0], robo_start_angle)
-elif psm.tick in range(day_1_start, day_1_end + 1):
-    for robo_solar in robo_solars:
+    elif psm.tick in range(day_1_start, day_1_end + 1):
         psm.orders.robot(
             robo_solar.address[0],
             robo_start_angle + \
                 (robo_end_angle - robo_start_angle) / (day_1_end - day_1_start) * \
                 (psm.tick - day_1_start)
         )
-elif psm.tick in range(day_2_start, day_2_end + 1):
-    for robo_solar in robo_solars:
+    elif psm.tick in range(day_2_start, day_2_end + 1):
         psm.orders.robot(
             robo_solar.address[0],
             robo_start_angle + \
             (robo_end_angle - robo_start_angle) / (day_2_end - day_2_start) * \
             (psm.tick - day_2_start)
         )
+
+
+with open(FILENAME, "w", encoding="utf-8") as file:
+    json.dump(json_data, file, indent=4)
 
 
 psm.save_and_exit()

@@ -11,22 +11,18 @@ import ips
 
 @dataclass
 class Forecast:
-    wind1: List[float]
-    wind2: List[float]
-    wind3: List[float]
-    wind4: List[float]
-    wind5: List[float]
-    wind_left: List[float]
-    wind_right: List[float]
-    sun: List[float]
+    wind_from: List[float]
+    wind_to: List[float]
+    sun_east: List[float]
+    sun_west: List[float]
     hospital: List[float]
     factory: List[float]
     houseA: List[float]
     houseB: List[float]
 
 
-forecast_path = Path("forecasts/forecast_prod_2.csv")
-logs_path = Path("logs/logs_prod_2.json")
+forecast_path = Path("forecasts/forecast_1_4.csv")
+logs_path = Path("logs/logs_1_3.json")
 ticks = range(1, 101)
 
 
