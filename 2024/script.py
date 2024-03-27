@@ -1,7 +1,7 @@
 import ips
 from dataclasses import dataclass
 from typing import List
-from math import exp
+from math import pow, exp
 import json
 
 psm = ips.init()
@@ -108,8 +108,11 @@ print(f"POWER DELTA: {power_delta}")
 
 
 def storage_power(temperature: float) -> float:
-    f = lambda t: 0.8 / (1 + exp(0.1 * (40 - t)))
-    coefficient = 1 + f(20) - f(temperature)
+    def helper(temperature: float) -> float:
+        return 0.8 / (1 + exp(0.1 * (40 - temperature)))
+
+    coefficient = 1 + helper(20) - helper(temperature)
+
     return 10 * coefficient
 
 
@@ -131,14 +134,21 @@ for transaction in STORAGE_TRANSACTIONS:
     if not transaction.start_tick <= psm.tick < transaction.end_tick:
         continue
 
-    capable_storages = tuple(
-        filter(
-            lambda storage: storage.charge.now >= storage_power(storage.temp.now) if transaction.amount < 0 else True,
-            storages
+    if transaction.amount < 0:
+        low_charge_storages = tuple(
+            filter(
+                lambda storage: storage.charge.now < 15,
+                storages
+            )
         )
-    )
-    capable_storages = storages if len(capable_storages) == 0 else storages
-    selected_storage = max(capable_storages, key=lambda storage: storage_power(storage.temp.now))
+
+        if low_charge_storages:
+            selected_storage = min(low_charge_storages, key=lambda storage: storage.charge.now)
+        else:
+            selected_storage = max(storages, key=lambda storage: storage_power(storage.temp.now))
+    else:
+        selected_storage = max(storages, key=lambda storage: storage_power(storage.temp.now))
+
 
     if transaction.amount > 0 and (power_delta > 0 if transaction.check else True):
         energy = min(transaction.amount, storage_power(selected_storage.temp.now), 60 - selected_storage.charge.now)
@@ -153,6 +163,14 @@ for transaction in STORAGE_TRANSACTIONS:
         print(f"DIScharged {selected_storage.address[0]} by {energy}")
 
 
+def ease_in_cubic(x: float) -> float:
+    return pow(x, 3)
+
+def ease_out_cubic(x: float) -> float:
+    return 1 - pow(1 - x, 3)
+
+
+# rotating suns
 robo_solar = "r2"
 if psm.tick in range(day_1_start):
     psm.orders.robot(robo_solar, 4)
@@ -173,8 +191,9 @@ elif psm.tick in range(day_1_start, day_1_end + 1):
     psm.orders.robot(
         robo_solar,
         robo_start_angle +
-        (robo_end_angle - robo_start_angle) / (day_1_end - day_1_start) *
-        (psm.tick - day_1_start)
+        (robo_end_angle - robo_start_angle) *
+        (psm.tick - day_1_start) / (day_1_end - day_1_start)
+        # ease_in_cubic((psm.tick - day_1_start) / (day_1_end - day_1_start))
     )
 elif psm.tick > day_1_end:
     psm.orders.robot(robo_solar, robo_end_angle)

@@ -21,9 +21,9 @@ class Forecast:
     houseB: List[float]
 
 
-forecast_path = Path("forecasts/forecast_1_4.csv")
-logs_path = Path("logs/logs_1_3.json")
-ticks = range(1, 101)
+forecast_path = Path("forecasts/forecast_2_meme.csv")
+logs_path = Path("logs/logs_2_meme.json")
+ticks = range(100)
 
 
 with open(forecast_path, "r") as csv_file:
@@ -44,27 +44,28 @@ def prints():
     print(psm.total_power.generated, psm.total_power.consumed, psm.total_power.losses)
     print(*map(
         lambda solar: sum(list(map(lambda line: line.generated, solar.power.then)) + [solar.power.now.generated]),
-        filter(lambda obj: obj.type == "solar", psm.objects)
+        filter(lambda obj: obj.type in ("solar", "solarRobot"), psm.objects)
     ))
 
 
 def generators():
-    solars = filter(lambda obj: obj.type == "solar", psm.objects)
+    solars = filter(lambda obj: obj.type in ("solar", "solarRobot"), psm.objects)
     for solar in solars:
         plt.plot(
             ticks,
-            list(map(lambda line: line.generated, solar.power.then + [solar.power.now])), label=solar.address[0]
+            list(map(lambda line: line.generated, solar.power.then)), label=solar.address[0]
         )
 
     # winds = filter(lambda obj: obj.type == "wind", psm.objects)
     # for wind in winds:
     #     plt.plot(
     #         ticks,
-    #         list(map(lambda line: line.generated, wind.power.then + [wind.power.now])), label=wind.address[0]
+    #         list(map(lambda line: line.generated, wind.power.then), label=wind.address[0]
     #     )
 
     # plt.plot(ticks, wind3, label="wind3")
-    plt.plot(ticks, forecast.sun, label="sun")
+    plt.plot(ticks, forecast.sun_east, label="sun")
+    plt.plot(ticks, forecast.sun_west, label="sun")
 
     plt.legend()
     plt.show()
@@ -76,7 +77,7 @@ def consumers():
     for obj in all:
         plt.plot(
             ticks,
-            list(map(lambda line: line.consumed, obj.power.then + [obj.power.now])), label=" ".join(obj.address)
+            list(map(lambda line: line.consumed, obj.power.then)), label=" ".join(obj.address)
         )
 
     plt.legend()
@@ -140,13 +141,13 @@ def coefficients():
             )
         psm = ips.from_log(logs_path, 100)
 
-        solars = filter(lambda obj: obj.type == "solar", psm.objects)
+        solars = filter(lambda obj: obj.type in ("solar", "solarRobot"), psm.objects)
         for solar in solars:
             plt.plot(
                 ticks,
                 list(map(
                     lambda line, index: line.generated / max(psm.forecasts.sun[index], 0.1),
-                    solar.power.then + [solar.power.now], range(100)
+                    solar.power.then, range(100)
                 )),
                 label=f"{solar.address[0]} {index}"
             )
@@ -158,7 +159,7 @@ def coefficients():
                 ticks,
                 list(map(
                     lambda line, index: line.generated / psm.forecasts.wind[forecast][index],
-                    wind.power.then + [wind.power.now], range(100)
+                    wind.power.then, range(100)
                 )),
                 label=f"{wind.address[0]} {index}"
             )
