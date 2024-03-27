@@ -28,13 +28,13 @@ def optimal_price(tick: int, action: int) -> float:  # action > 0 -> buy, action
     tick = tick % 48
 
     if 0 <= tick <= 11:
-        return 2.5 if action > 0 else 2.4
+        return 2.5 if action > 0 else 2.5
     elif 12 <= tick <= 23:
-        return 4 if action > 0 else 4.4
+        return 4 if action > 0 else 5
     elif 24 <= tick <= 35:
-        return 5.5 if action > 0 else 5.4
+        return 5.5 if action > 0 else 6.5
     else:
-        return 8 if action > 0 else 7.4
+        return 8 if action > 0 else 10.5
 
 
 MARKET_OFFERS: List[MarketOffer] = [

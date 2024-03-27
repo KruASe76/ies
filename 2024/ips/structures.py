@@ -9,8 +9,7 @@ from copy import deepcopy
 
 __all__ = [
     "Powerstand", "Object", "Line", "Powerline",
-    "Historic", "Receipt", "ExchangeReceipt",
-    "Diesel", "Cell",
+    "Historic", "Receipt", "ExchangeReceipt"
 ]
 
 def pretty_bool(v):
@@ -24,8 +23,6 @@ def pretty_agent(ag):
 def pretty_source(ag):
     if ag == "exchange":
         return 'контракт c оператором'
-    elif ag == 'overload':
-        return 'штраф за перегрузку'
     return f'контракт с игроком {ag["place"]}.{ag["player"]}'
 
 
@@ -37,13 +34,13 @@ def unsource(src):
 
 
 def safe_tail(data):
-    if len(data) == 0:
+    if len(data):
         return None
     return data[-1]
 
 
 def safe_head(data):
-    if len(data) == 0:
+    if len(data):
         return None
     return data[0]
 
@@ -67,7 +64,9 @@ ExchangeReceipt.__str__ = \
     lambda self: f"{pretty_source(self.source)} " \
                  f"({self.flux:.2f} МВт, {self.price:.2f} ₽/МВт)"
 
-Forecasts = namedtuple("Forecasts", ("hospital", "factory", "houseA", "houseB", "sun", "wind"))
+CorridoredForecast = namedtuple("CorridoredForecast", ("lows", "highs"))
+
+Forecasts = namedtuple("Forecasts", ("hospital", "factory", "houseA", "houseB", "sunWest", "sunEast", "wind"))
 
 TotalPower = namedtuple("TotalPower", ("generated", "consumed", "external", "losses"))
 
@@ -76,22 +75,21 @@ Power.__str__ = lambda self: f"{pretty_bool(self.online)} " \
                              f"(+{self.generated} МВт⋅ч -{self.consumed} МВт⋅ч)"
 Power.total = lambda self: self.generated - self.consumed
 
-Object = namedtuple("Object", ("id", "type", "contract", "address", "path",
-                               "score", "power", "charge", "modules", "failed"))
+Object = namedtuple("Object", ("id", "type", "contract", "address", "path", "failed",
+                               "score", "power", "charge", "modules", "angle", "temp"))
 Object.__str__ = lambda self: f"{self.type} ({self.power.now}, {self.score.now})"
 
 Line = namedtuple("Line", ("id", "line"))
 Line.__str__ = lambda self: f"{self.id}-{self.line}"
 
-Powerline = namedtuple("Powerline", ("location", "online", "upflow", "downflow", "losses", "wear", "broken", "id", "loadLossesPct", "wearLossesPct"))
+Angle = namedtuple("Angle", ("current", "target"))
+Angle.__str__ = lambda self: f"{self.current}%->{self.target}%"
+
+Powerline = namedtuple("Powerline", ("location", "online", "upflow", "downflow", "losses", "id"))
 Powerline.__str__ = lambda self: f"{self.location} ({pretty_bool(self.online)})"
-# TODO: более качественный str для Powerline
 
-Diesel = namedtuple("Diesel", ("power",))
-Diesel.__str__ = lambda self: f"Дизель ({self.power})"
-
-Cell = namedtuple("Diesel", ("charge", "delta"))
-Cell.__str__ = lambda self: f"Аккумулятор ({self.charge})"
+ExchangePrices = namedtuple("ExchangePrices", ("advanceBuy", "advanceSell", "instantBuy", "instantSell"))
+ExchangePrices.__str__ = lambda self: f"<список цен на бирже>"
 
 station_types = {"miniA", "miniB", "main"}
 storage_types = {"miniA", "storage", "main"}
@@ -105,22 +103,26 @@ def make_line(l):
     return Line(make_objectid(l["id"]), l["line"])
 
 def make_module(m):
-    if m["type"] == "cell":
-        return Cell(m["charge"], m["delta"])
-    if m["type"] == "diesel":
-        return Diesel(m["power"])
+    if m == "upstream": return m
+    if m == "downstream": return m
+    if m == "cost": return m
     raise NotImplementedError("неизвестный модуль")
 
 
 def make_historic(d, fn):
     return Historic(fn(**d["now"]), [fn(**x) for x in d["then"][::-1]])
 
+def make_historicM(d, fn):
+    return make_historic(d, fn) if d else None
 
 def make_historic_(d, fn):
     return Historic(fn(d["now"]), [fn(x) for x in d["then"][::-1]])
 
+def make_historicM_(d, fn):
+    return make_historic_(d, fn) if d else None
 
-def make_object(d, stations, storages, thermos):
+
+def make_object(d, stations, storages, robots):
     obj = Object(
         id=make_objectid(d["id"]),
         address=tuple(d["address"]),
@@ -128,10 +130,12 @@ def make_object(d, stations, storages, thermos):
         path=tuple(tuple(make_line(l) for l in a) for a in d["path"]),
         score=make_historic(d["score"], Receipt),
         power=make_historic(d["power"], Power),
-        charge=make_historic_(d["charge"], float),
+        charge=make_historicM_(d["charge"], float),
         modules=tuple(make_module(m) for m in d["modules"]),
+        failed=d["failed"],
         type=d["class"],
-        failed=d["failed"]
+        angle=make_historicM(d["angle"], Angle),
+        temp=make_historicM_(d["temp"], float),
     )
     if obj.type in station_types:
         stations[obj.address[0]] = obj.id
@@ -139,8 +143,8 @@ def make_object(d, stations, storages, thermos):
         stations[obj.address[0]] = {"load": x[0].upper() + x[1:], "int": y}
     if obj.type in storage_types:
         storages[obj.address[0]] = obj.id
-    if obj.type == "TPS":
-        thermos[obj.address[0]] = obj.id
+    if obj.type == "solarRobot":
+        robots[obj.address[0]] = obj.id
     return obj
 
 
@@ -168,29 +172,23 @@ def make_forecast_set(d):
     return ForecastSet(tuple(d["forecast"]["values"]),
                        spread=d["spread"])
 
-def make_marked_forecast_set(ds):
-    return {
-        d["mark"] : ForecastSet(tuple(d["forecast"]["values"]),
-                                spread=d["spread"])
-        for d in ds
-    }
-
 
 class Powerstand:
 
     GRAPH_COUNT = 4
 
-    def __init__(self, data, bloat_fields=False):
+    def __init__(self, data, offline=True, bloat_fields=False):
 
-        if data['tag'] != "CoreNTO8":
+        if data['tag'] != "CoreNTO9":
             raise ValueError("несовместимая версия фреймворка")
         data = data['data']['contents']['cargo']
 
+        self.__offline = offline
         self.__owner = data['scores'][0][0]
         self.__orders = orders = []
         self.__station_index = dict()
         self.__storage_index = dict()
-        self.__tps_index = dict()
+        self.__robot_index = dict()
         self.__user_data = [[] for _ in range(self.GRAPH_COUNT)]
         self.raw_data = data  # NOTE: deepcopy не делается, потому что долго и бесполезно
 
@@ -201,17 +199,13 @@ class Powerstand:
         self.gameLength = self.config['gameLength']
         self.scoreDelta = Receipt(**data["scores"][0][1]["now"]["total"])
 
-        self.fails = data['externalFail']
-
-        # 👀 👀 👀 
-        self.wind = {
-            mark: from_chipping(w)
-            for (mark, w) in data['weatherWind']
-        }
-        self.sun = from_chipping(data['weatherSun'])
+        # 😾 <[ о, привет! передай разработчику, чтобы спал больше ]
+        self.wind = from_chipping(data['weatherWind'])
+        self.sunWest = from_chipping(data['weatherSunWest'])
+        self.sunEast = from_chipping(data['weatherSunEast'])
 
         self.objects = [make_object(obj, self.__station_index, 
-                                    self.__storage_index, self.__tps_index) 
+                                    self.__storage_index, self.__robot_index) 
                         for obj in data["objs"]]
         self.networks = {i+1: make_powerline(pl) for (i, pl) in enumerate(data["nets"])}
         raw_fc = data["forecasts"]
@@ -220,12 +214,14 @@ class Powerstand:
             make_forecast_set(raw_fc["sfClass2"]),
             make_forecast_set(raw_fc["sfClass3A"]),
             make_forecast_set(raw_fc["sfClass3B"]),
-            make_forecast_set(raw_fc["sfSun"]),
-            make_marked_forecast_set(raw_fc["sfWind"]),
+            make_forecast_set(raw_fc["sfSunWest"]),
+            make_forecast_set(raw_fc["sfSunEast"]),
+            CorridoredForecast(*raw_fc["sfWind"]),
         )
 
         self.exchange = [ExchangeReceipt(unsource(d["source"]), d["amount"], d["price"])
                          for d in data["exchangeReceipts"]]
+        self.exchangePrices = ExchangePrices(**data["exchangePrices"])
 
         raw_tp = data["totalPowers"][0][1]["now"]
         self.total_power = TotalPower(raw_tp["totalGenerated"], raw_tp["totalConsumed"],
@@ -238,14 +234,11 @@ class Powerstand:
             self.topo = {c.location: i for (i, c) in self.networks.items()}
 
         self.orders = Namespace(
-            diesel=lambda address, power: self.__set_diesel(address, power),
-            tps=lambda address, power: self.__set_tps(address, power),
+            robot=lambda address, angle: self.__set_robot(address, angle),
             charge=lambda address, power: self.__change_cell(address, power, True),
             discharge=lambda address, power: self.__change_cell(address, power, False),
             sell=lambda amount, price: self.__outstanding(amount, price, True),
             buy=lambda amount, price: self.__outstanding(amount, price, False),
-            line_on=lambda address, line: self.__set_line(address, line, True),
-            line_off=lambda address, line: self.__set_line(address, line, False),
             add_graph=lambda idx, values: self.__add_graph(idx, values),
             # debug functions
             get=lambda: orders.copy(),
@@ -255,41 +248,23 @@ class Powerstand:
     def __check_address(self, address):
         return address in self.__station_index
 
-    def __set_diesel(self, address, power):
+    def __set_robot(self, address, angle):
         try:
-            power = float(power)
-            if power < 0:
-                self.__warn_tb("Отрицательное значение энергии на дизеле. "
+            angle = int(angle)
+            if not (0 <= angle < 100):
+                self.__warn_tb("Некорректное значение угла к-СЭС. "
                                "Приказ не принят.", cut=3)
                 return
         except ValueError:
-            self.__warn_tb("Для приказа на дизель нужен float-совместимый "
+            self.__warn_tb("Для приказа на к-СЭС нужен int-совместимый "
                            "тип. Приказ не принят.", cut=3)
             return
-        if not self.__check_address(address):
-            self.__warn_tb("Такой подстанции не существует. "
+        if address not in self.__robot_index:
+            self.__warn_tb("Такой к-СЭС не существует. "
                            "Приказ не принят.", cut=3)
             return
-        # TODO? ограничение сверху
-        self.__orders.append({"orderT": "diesel", "address": address, "power": power})
-
-    def __set_tps(self, address, power):
-        try:
-            power = float(power)
-            if power < 0:
-                self.__warn_tb("Отрицательное значение энергии на ТЭС. "
-                               "Приказ не принят.", cut=3)
-                return
-        except ValueError:
-            self.__warn_tb("Для приказа на ТЭС нужен float-совместимый "
-                           "тип. Приказ не принят.", cut=3)
-            return
-        if address not in self.__tps_index:
-            self.__warn_tb("Такой ТЭС не существует. "
-                           "Приказ не принят.", cut=3)
-            return
-        # TODO? ограничение сверху
-        self.__orders.append({"orderT": "TPS", "address": address, "power": power})
+        self.__orders.append({"orderT": "solarRobotTarget", 
+                              "address": address, "angle": angle})
 
     def __change_cell(self, address, power, charge=True):
         try:
@@ -335,23 +310,13 @@ class Powerstand:
         order = "sell" if sell else "buy"
         self.__orders.append({"orderT": order, "amount": amount, "price": price})
 
-    def __set_line(self, address, line, value=True):
-        try:
-            line_obj = self.__station_index[address]
-        except KeyError:
-            self.__warn_tb("Запрос на линию несуществующей подстанции. "
-                           "Приказ не принят.", cut=3)
-            return
-        # TODO: проверка на корректность линии
-        order = "lineOn" if value else "lineOff"
-        self.__orders.append({"orderT": order, "line": {"id": line_obj, "line": line},
-                              "address": address})
-        pass
-
     def __commit(self):
+        if self.__offline:
+            print("<<< И тут приказы отправляются в систему... >>>")
+            return 0
         self.__orders.append({"orderT": "userData", "data": self.__user_data})
         package = {
-            "tag": "VariantOrders_NTO8", 
+            "tag": "VariantOrders_NTO9", 
             "contents": [
                 { 
                     "owner": self.__owner,
@@ -411,20 +376,12 @@ class Powerstand:
     @staticmethod
     def humanize_order(order):
         type = order["orderT"]
-        if type == "lineOn":
-            return f"включение линии {order['line']['line']} " \
-                   f"на подстанции {order['address']}"
-        if type == "lineOff":
-            return f"выключение линии {order['line']['line']} " \
-                   f"на подстанции {order['address']}"
         if type == "sell":
             return f"заявка на продажу {order['amount']:.2f} МВт⋅ч за {order['price']:.2f} ₽"
         if type == "buy":
             return f"заявка на покупку {order['amount']:.2f} МВт⋅ч за {order['price']:.2f} ₽"
-        if type == "diesel":
-            return f"установка мощности дизелей {order['address']} в {order['power']:.2f} МВт"
-        if type == "TPS":
-            return f"зарядить ТЭС {order['address']} на {order['power']:.2f} ед. топлива"
+        if type == "solarRobotTarget":
+            return f"установить целевой угол к-СЭС {order['address']} на {order['angle']:.2f}%"
         if type == "charge":
             return f"зарядка аккумуляторов {order['address']} на {order['power']:.2f} МВт⋅ч"
         if type == "discharge":
