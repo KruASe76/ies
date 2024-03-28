@@ -199,7 +199,7 @@ class Powerstand:
         self.gameLength = self.config['gameLength']
         self.scoreDelta = Receipt(**data["scores"][0][1]["now"]["total"])
 
-        # 😾 <[ о, привет! передай разработчику, чтобы спал больше ]
+        # 👀 👀 👀 
         self.wind = from_chipping(data['weatherWind'])
         self.sunWest = from_chipping(data['weatherSunWest'])
         self.sunEast = from_chipping(data['weatherSunEast'])
@@ -216,7 +216,7 @@ class Powerstand:
             make_forecast_set(raw_fc["sfClass3B"]),
             make_forecast_set(raw_fc["sfSunWest"]),
             make_forecast_set(raw_fc["sfSunEast"]),
-            CorridoredForecast(*raw_fc["sfWind"]),
+            CorridoredForecast(**raw_fc["sfWind"]),
         )
 
         self.exchange = [ExchangeReceipt(unsource(d["source"]), d["amount"], d["price"])

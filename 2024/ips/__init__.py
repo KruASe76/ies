@@ -7,7 +7,7 @@ import urllib.request
 from urllib.error import URLError
 from .structures import *
 
-__version__ = "1.0.2024.1"
+__version__ = "1.0.2024.2"
 __all__ = ["init", "init_test", "from_json", "from_file", "from_log", "Powerstand"]
 
 

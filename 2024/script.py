@@ -4,7 +4,9 @@ from typing import List
 from math import pow, exp
 import json
 
+
 psm = ips.init()
+# psm = ips.from_log("logs/logs_2_evening.json", 40)
 
 
 @dataclass
@@ -28,54 +30,57 @@ def optimal_price(tick: int, action: int) -> float:  # action > 0 -> buy, action
     tick = tick % 48
 
     if 0 <= tick <= 11:
-        return 2.5 if action > 0 else 2.4
+        return 2.5 if action > 0 else 2.8
     elif 12 <= tick <= 23:
-        return 4 if action > 0 else 4.4
+        return 4 if action > 0 else 4.8
     elif 24 <= tick <= 35:
-        return 5.5 if action > 0 else 5.4
+        return 5.5 if action > 0 else 5.8
     else:
-        return 8 if action > 0 else 7.4
+        return 8 if action > 0 else 9
 
 
 MARKET_OFFERS: List[MarketOffer] = [
-    # закупка старт
-    MarketOffer(0, 12, 15, optimal_price(psm.tick, +1), False),
-    # продажа день 1
-    MarketOffer(24, 36, -30, optimal_price(psm.tick, -1), ),
-    # покупка ночь середина
-    MarketOffer(43, 48, 5, optimal_price(psm.tick, +1), ),
-    MarketOffer(48, 60, 5, optimal_price(psm.tick, +1), ),
-    # продажа день 2
-    MarketOffer(72, 84, -30, optimal_price(psm.tick, -1), ),
-    # продажа финал
+# закупка старт
+    # MarketOffer(0, 25, 15, optimal_price(psm.tick, +1), False),
+# продажа день 1
+    MarketOffer(9, 40, -10, optimal_price(psm.tick, -1), False),
+# продажа биржа 1
+    MarketOffer(34, 46, -7, optimal_price(psm.tick, -1), False),
+# покупка ночь середина
+    # MarketOffer(43, 48, 15, optimal_price(psm.tick, +1), ),
+    # MarketOffer(54, 60, 25, optimal_price(psm.tick, +1), ),
+# продажа день 2
+    MarketOffer(58, 87, -20, optimal_price(psm.tick, -1), False),
+# продажа биржа 2
+    MarketOffer(82, 94, -7, optimal_price(psm.tick, -1), False),
+# продажа финал
     # MarketOffer(85, 95, -5, optimal_price(psm.tick, -1), False),
-    # покупка финал
-    MarketOffer(88, 98, 8, optimal_price(psm.tick, +1), )
-    # стабильная продажа
+# покупка финал
+    # MarketOffer(88, 98, 15, optimal_price(psm.tick, +1), )
+# стабильная продажа
+    # MarketOffer(0, 100, -40, optimal_price(psm.tick, -1), False),
     # MarketOffer(0, 100, -5, optimal_price(psm.tick, -1), False),
     # MarketOffer(0, 100, -5, optimal_price(psm.tick, -1), False),
-    # MarketOffer(0, 100, -5, optimal_price(psm.tick, -1), False),
-    # стабильная покупка
+# стабильная покупка
     # MarketOffer(0, 100, 5, optimal_price(psm.tick, +1), False),
     # MarketOffer(0, 100, 5, optimal_price(psm.tick, +1), False),
     # MarketOffer(0, 100, 5, optimal_price(psm.tick, +1), False),
 ]
 
 STORAGE_TRANSACTIONS: List[StorageTransaction] = [
-    # зарядка день 1
-    StorageTransaction(19, 34, 10, ),
-    # разрядка ночь середина 1
-    StorageTransaction(44, 52, -10, False),
-    StorageTransaction(51, 68, -10, False),
-    # зарядка день 2
-    StorageTransaction(69, 84, 10, ),
-    # разрядка финал
-    StorageTransaction(88, 100, -10, False),
-    # стабильная зарядка
+# зарядка день 1
+    StorageTransaction(19, 34, 10, False),
+# разрядка ночь середина
+    StorageTransaction(35, 48, -10, False),
+# зарядка день 2
+    StorageTransaction(69, 84, 10, False),
+# разрядка финал
+    StorageTransaction(83, 96, -10, False),
+# стабильная зарядка
     # StorageTransaction(0, 100, -5, False),
     # StorageTransaction(0, 100, -5, False),
     # StorageTransaction(0, 100, -5, False),
-    # стабильная зарядка
+# стабильная зарядка
     # StorageTransaction(0, 100, +5, False),
     # StorageTransaction(0, 100, +5, False),
     # StorageTransaction(0, 100, +5, False),
@@ -89,8 +94,8 @@ else:
     with open(FILENAME, "r", encoding="utf-8") as file:
         json_data = json.load(file)
 
-robo_start_angle = 49 - 43
-robo_end_angle = 49 + 39
+robo_start_angle = 49 - 40
+robo_end_angle = 49 + 32
 day_1_start = -1 + 6
 day_1_end = -1 + 49
 day_2_start = -1 + 54
@@ -137,7 +142,7 @@ for transaction in STORAGE_TRANSACTIONS:
     if transaction.amount < 0:
         low_charge_storages = tuple(
             filter(
-                lambda storage: storage.charge.now < 15,
+                lambda storage: 5 < storage.charge.now < 15,
                 storages
             )
         )
@@ -163,29 +168,11 @@ for transaction in STORAGE_TRANSACTIONS:
         print(f"DIScharged {selected_storage.address[0]} by {energy}")
 
 
-def ease_in_cubic(x: float) -> float:
-    return pow(x, 3)
-
-def ease_out_cubic(x: float) -> float:
-    return 1 - pow(1 - x, 3)
-
-
 # rotating suns
-robo_solar = "r2"
-if psm.tick in range(day_1_start):
-    psm.orders.robot(robo_solar, 4)
-elif psm.tick in range(day_1_start, day_1_end + 1):
-    psm.orders.robot(
-        robo_solar,
-        4 +
-        90 / (day_1_end - day_1_start) *
-        (psm.tick - day_1_start)
-    )
-elif psm.tick > day_1_end:
-    psm.orders.robot(robo_solar, 49)
-
-robo_solar = "r5"
-if psm.tick in range(day_1_start):
+robo_solar = "r1"
+robo_start_angle = 49 + 12
+robo_end_angle = 49 + 30
+if psm.tick not in range(day_1_start, day_1_end + 1) and psm.tick not in range(day_2_start, day_2_end + 1):
     psm.orders.robot(robo_solar, robo_start_angle)
 elif psm.tick in range(day_1_start, day_1_end + 1):
     psm.orders.robot(
@@ -193,10 +180,35 @@ elif psm.tick in range(day_1_start, day_1_end + 1):
         robo_start_angle +
         (robo_end_angle - robo_start_angle) *
         (psm.tick - day_1_start) / (day_1_end - day_1_start)
-        # ease_in_cubic((psm.tick - day_1_start) / (day_1_end - day_1_start))
     )
-elif psm.tick > day_1_end:
-    psm.orders.robot(robo_solar, robo_end_angle)
+elif psm.tick in range(day_2_start, day_2_end + 1):
+    psm.orders.robot(
+        robo_solar,
+        robo_start_angle +
+        (robo_end_angle - robo_start_angle) *
+        (psm.tick - day_2_start) / (day_2_end - day_2_start)
+    )
+
+robo_solar = "r6"
+robo_start_angle = 49 - 15
+robo_end_angle = 49 + 35
+if psm.tick not in range(day_1_start, day_1_end + 1) and psm.tick not in range(day_2_start, day_2_end + 1):
+    psm.orders.robot(robo_solar, robo_start_angle)
+elif psm.tick in range(day_1_start, day_1_end + 1):
+    psm.orders.robot(
+        robo_solar,
+        robo_start_angle +
+        (robo_end_angle - robo_start_angle) *
+        (psm.tick - day_1_start) / (day_1_end - day_1_start)
+    )
+elif psm.tick in range(day_2_start, day_2_end + 1):
+    psm.orders.robot(
+        robo_solar,
+        robo_start_angle +
+        (robo_end_angle - robo_start_angle) *
+        (psm.tick - day_2_start) / (day_2_end - day_2_start)
+    )
 
 
 psm.save_and_exit()
+# print(f"{psm.tick}:", psm.orders.get())

@@ -155,14 +155,6 @@ for transaction in STORAGE_TRANSACTIONS:
         print(f"DIScharged {selected_storage.address[0]} by {energy}")
 
 
-def ease_in_cubic(x: float) -> float:
-    return pow(x, 3)
-
-
-def ease_out_cubic(x: float) -> float:
-    return 1 - pow(1 - x, 3)
-
-
 # rotating suns
 for robo_solar in robo_solars:
     if psm.tick not in range(day_1_start, day_1_end + 1) and psm.tick not in range(day_2_start, day_2_end + 1):
@@ -173,7 +165,6 @@ for robo_solar in robo_solars:
             robo_start_angle +
             (robo_end_angle - robo_start_angle) *
             (psm.tick - day_1_start) / (day_1_end - day_1_start)
-            # ease_in_cubic((psm.tick - day_1_start) / (day_1_end - day_1_start))
         )
     elif psm.tick in range(day_2_start, day_2_end + 1):
         psm.orders.robot(

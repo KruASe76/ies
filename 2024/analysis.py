@@ -21,8 +21,8 @@ class Forecast:
     houseB: List[float]
 
 
-forecast_path = Path("forecasts/forecast_2_meme.csv")
-logs_path = Path("logs/logs_2_meme.json")
+forecast_path = Path("forecasts/forecast_2_evening.csv")
+logs_path = Path("logs/logs_2_evening.json")
 ticks = range(100)
 
 
@@ -43,7 +43,7 @@ def prints():
     pprint(psm.networks)
     print(psm.total_power.generated, psm.total_power.consumed, psm.total_power.losses)
     print(*map(
-        lambda solar: sum(list(map(lambda line: line.generated, solar.power.then)) + [solar.power.now.generated]),
+        lambda solar: sum(list(map(lambda line: line.generated, solar.power.then[1:])) + [solar.power.now.generated]),
         filter(lambda obj: obj.type in ("solar", "solarRobot"), psm.objects)
     ))
 
@@ -53,14 +53,14 @@ def generators():
     for solar in solars:
         plt.plot(
             ticks,
-            list(map(lambda line: line.generated, solar.power.then)), label=solar.address[0]
+            list(map(lambda line: line.generated, solar.power.then[1:])) + [solar.power.now.generated], label=solar.address[0]
         )
 
     # winds = filter(lambda obj: obj.type == "wind", psm.objects)
     # for wind in winds:
     #     plt.plot(
     #         ticks,
-    #         list(map(lambda line: line.generated, wind.power.then), label=wind.address[0]
+    #         list(map(lambda line: line.generated, wind.power.then[1:])) + [wind.power.now.generated], label=wind.address[0]
     #     )
 
     # plt.plot(ticks, wind3, label="wind3")
@@ -77,7 +77,7 @@ def consumers():
     for obj in all:
         plt.plot(
             ticks,
-            list(map(lambda line: line.consumed, obj.power.then)), label=" ".join(obj.address)
+            list(map(lambda line: line.consumed, obj.power.then[1:])) + [obj.power.now.consumed], label=" ".join(obj.address)
         )
 
     plt.legend()
@@ -147,7 +147,7 @@ def coefficients():
                 ticks,
                 list(map(
                     lambda line, index: line.generated / max(psm.forecasts.sun[index], 0.1),
-                    solar.power.then, range(100)
+                    solar.power.then[1:] + [solar.power.now], range(100)
                 )),
                 label=f"{solar.address[0]} {index}"
             )
@@ -159,7 +159,7 @@ def coefficients():
                 ticks,
                 list(map(
                     lambda line, index: line.generated / psm.forecasts.wind[forecast][index],
-                    wind.power.then, range(100)
+                    wind.power.then[1:] + [wind.power.now], range(100)
                 )),
                 label=f"{wind.address[0]} {index}"
             )
@@ -168,9 +168,27 @@ def coefficients():
     plt.show()
 
 
-# prints()
-generators()
-consumers()
-# consumer_sum()
-# test_on()
-# coefficients()
+# # prints()
+# generators()
+# consumers()
+# # consumer_sum()
+# # test_on()
+# # coefficients()
+
+
+for obj in psm.objects:
+    if obj.address[0] in ("a4", "s6", "s8"):
+        print(obj.address[0], obj.path, obj.power.then[87].generated)
+    if obj.address[0] in ("h6", "d6", "d7", "bF", "fB", "cA", "eD", "e5"):
+        print(obj.address[0], obj.path, obj.power.then[87].consumed)
+
+print()
+
+psm = ips.from_log(logs_path, 87)
+for index, net in psm.networks.items():
+    print("== Энергорайон", index, "==")
+    print("Адрес:", net.location)          # [ (ID подстанции, № линии) ]
+    print("Включен:", net.online) # bool
+    print("Генерация:", net.upflow) # float
+    print("Потребление:", net.downflow) # float
+    print("Потери:", net.losses) # float
