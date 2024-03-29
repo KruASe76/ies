@@ -218,6 +218,7 @@ def predict_excess(tick: int) -> float:  # returns extra energy
 
 def automation():
     prediction_tick = psm.tick + 2
+    storage_planning_tick = prediction_tick - 1
     if prediction_tick > 99:
         return
 
@@ -236,7 +237,7 @@ def automation():
             selected_storage = max(not_full_storages, key=lambda storage: storage_power(storage.temp.now))
             energy = min(10, storage_power(selected_storage.temp.now), 60 - selected_storage.charge.now)
 
-            json_data["storage"][prediction_tick] = (selected_storage.address[0], energy)
+            json_data["storage"][storage_planning_tick] = (selected_storage.address[0], energy)
             excess -= energy
     elif 36 <= prediction_tick <= 47 or 84 <= prediction_tick <= 95:
         not_low_charge_storages = tuple(
@@ -253,7 +254,7 @@ def automation():
 
         energy = min(10, storage_power(selected_storage.temp.now), selected_storage.charge.now)
 
-        json_data["storage"][prediction_tick] = (selected_storage.address[0], -energy)
+        json_data["storage"][storage_planning_tick] = (selected_storage.address[0], -energy)
         excess += energy
 
     excess += EXCESS_THRESHOLD
