@@ -7,6 +7,8 @@ import json
 psm = ips.init()
 # psm = ips.from_log("logs/logs_2_evening.json", 40)
 
+EXCESS_THRESHOLD = 0
+
 @dataclass
 class MarketOffer:
     start_tick: int
@@ -31,30 +33,30 @@ def op(tick: int, action: int) -> float:  # action > 0 -> buy, action < 0 -> sel
 
 MARKET_OFFERS: List[MarketOffer] = [
     # закупка старт
-    MarketOffer(0, 9, 5, op(psm.tick, +1), False),
+    MarketOffer(0, 13, 5, op(psm.tick, +1), False),
 
     # продажа день 1
-    MarketOffer(9, 40, -10, op(psm.tick, -1), False),
+    MarketOffer(14, 40, -10, op(psm.tick, -1), False),
 
     # продажа дорого 1
     # MarketOffer(34, 46, -7, op(psm.tick, -1), False),
 
     # покупка ночь середина
-    MarketOffer(40, 53, 5, op(psm.tick, +1), False),
-    MarketOffer(53, 59, 15, op(psm.tick, +1), False),
+    #MarketOffer(40, 53, 5, op(psm.tick, +1), False),
+    MarketOffer(53, 59, 8, op(psm.tick, +1), False),
 
     # продажа день 2
-    MarketOffer(59, 88, -10, op(psm.tick, -1), False),
+    MarketOffer(61, 88, -10, op(psm.tick, -1), False),
 
     # продажа дорого 2
     # MarketOffer(82, 94, -7, op(psm.tick, -1), False),
 
     # покупка финал
-    MarketOffer(89, 98, 10, op(psm.tick, +1), False),
+    MarketOffer(89, 98, 5, op(psm.tick, +1), False),
     # MarketOffer(95, 98, 15, op(psm.tick, +1), False),
 
     # стабильная продажа
-    # MarketOffer(0, 100, -40, op(psm.tick, -1), False),
+    # MarketOffer(0, 100, -5, op(psm.tick, -1), False),
     # MarketOffer(0, 100, -5, op(psm.tick, -1), False),
     # MarketOffer(0, 100, -5, op(psm.tick, -1), False),
     # стабильная покупка
@@ -232,7 +234,7 @@ def automation():
         json_data["storage"][prediction_tick] = (selected_storage.address[0], -energy)
         excess += energy
 
-    excess -= 5  # threshold
+    excess += EXCESS_THRESHOLD
 
     # market
     if excess > 0:
