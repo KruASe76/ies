@@ -1,21 +1,13 @@
 import ips
 from dataclasses import dataclass
 from typing import List
-from math import pow, exp
+from math import exp
 import json
 
 psm = ips.init()
-
-
 # psm = ips.from_log("logs/logs_2_evening.json", 40)
 
-@dataclass
-class MarketOffer:
-    start_tick: int
-    end_tick: int
-    amount: float  # купить - знак "+", продать - знак "-"
-    price: float
-    check: bool = True
+EXCESS_THRESHOLD = 0
 
 
 def op(tick: int, action: int) -> float:  # action > 0 -> buy, action < 0 -> sell
@@ -31,35 +23,41 @@ def op(tick: int, action: int) -> float:  # action > 0 -> buy, action < 0 -> sel
         return 8 if action > 0 else 9
 
 
+@dataclass
+class MarketOffer:
+    start_tick: int
+    end_tick: int
+    amount: float  # купить - знак "+", продать - знак "-"
+    price: float
+    check: bool = True
+
+
 MARKET_OFFERS: List[MarketOffer] = [
     # закупка старт
-    # MarketOffer(0, 7, 5, op(psm.tick, +1), False),
+    # MarketOffer(0, 13, 5, op(psm.tick, +1), False),
 
     # продажа день 1
-    # MarketOffer(9, 40, -10, op(psm.tick, -1), False),
+    # MarketOffer(14, 40, -10, op(psm.tick, -1), False),
 
     # продажа дорого 1
     # MarketOffer(34, 46, -7, op(psm.tick, -1), False),
 
     # покупка ночь середина
-    # MarketOffer(40, 51, 5, op(psm.tick, +1), False),
-    # MarketOffer(51, 60, 10, op(psm.tick, +1), False),
+    # MarketOffer(40, 53, 5, op(psm.tick, +1), False),
+    # MarketOffer(53, 59, 8, op(psm.tick, +1), False),
 
     # продажа день 2
-    # MarketOffer(58, 87, -10, op(psm.tick, -1), False),
+    # MarketOffer(61, 88, -10, op(psm.tick, -1), False),
 
     # продажа дорого 2
     # MarketOffer(82, 94, -7, op(psm.tick, -1), False),
 
-    # продажа финал
-    # MarketOffer(85, 98, -10, op(psm.tick, -1), False),
-
     # покупка финал
-    # MarketOffer(90, 98, 5, op(psm.tick, +1), False),
+    # MarketOffer(89, 98, 5, op(psm.tick, +1), False),
     # MarketOffer(95, 98, 15, op(psm.tick, +1), False),
 
     # стабильная продажа
-    # MarketOffer(0, 100, -40, op(psm.tick, -1), False),
+    # MarketOffer(0, 100, -5, op(psm.tick, -1), False),
     # MarketOffer(0, 100, -5, op(psm.tick, -1), False),
     # MarketOffer(0, 100, -5, op(psm.tick, -1), False),
     # стабильная покупка
@@ -79,13 +77,17 @@ class StorageTransaction:
 
 STORAGE_TRANSACTIONS: List[StorageTransaction] = [
     # зарядка день 1
-    # StorageTransaction(19, 34, 10, False),
+    # StorageTransaction(19, 32, 10, False),
+
     # разрядка ночь середина
-    # StorageTransaction(40, 53, -10, False),
+    # StorageTransaction(42, 53, -10, False),
+
     # зарядка день 2
-    # StorageTransaction(69, 84, 10, False),
+    # StorageTransaction(69, 82, 10, False),
+
     # разрядка финал
-    # StorageTransaction(87, 100, -10, False),
+    # StorageTransaction(89, 100, -10, False),
+
     # стабильная зарядка
     # StorageTransaction(0, 100, -5, False),
     # StorageTransaction(0, 100, -5, False),
@@ -96,16 +98,18 @@ STORAGE_TRANSACTIONS: List[StorageTransaction] = [
     # StorageTransaction(0, 100, +5, False),
 ]
 
+
 solar_config = {
-    "s6": ("east", (1.46, -3), (1.46, 0)),
-    "s8": ("east", (1.46, -3), (1.46, 0)),
-    "r4": ("west", (2.28, -5.22), (2.28, 0.4)),
+    "s6": ("east", (1.46, -3), (1.46, 0), True),
+    "s9": ("east", (1.46, -3), (1.46, 0), False),
+    "r1": ("west", (2.28, -5.22), (2.28, 0.4), True),
 }
 
 day_1_start = -1 + 6
 day_1_end = -1 + 49
 day_2_start = -1 + 54
 day_2_end = -1 + 97
+
 
 FILENAME = "chekanshchiki_temp.json"
 
@@ -118,14 +122,21 @@ else:
     with open(FILENAME, "r", encoding="utf-8") as file:
         json_data = json.load(file)
 
+
 storages = tuple(filter(lambda obj: obj.type == "storage", psm.objects))
 robo_solars = tuple(filter(lambda obj: obj.type == "solarRobot", psm.objects))
+
 
 power_delta = (
         psm.total_power.generated - psm.total_power.consumed - psm.total_power.losses + json_data["market"][psm.tick]
 )
 # json_data["power_delta"].append(power_delta)
 print(f"POWER DELTA: {power_delta}")
+
+
+def calculate_loss(energy: float):
+    coefficient = (energy / 80) ** 1.8 * 0.55
+    return energy * coefficient
 
 
 def storage_power(temperature: float) -> float:
@@ -153,41 +164,56 @@ def predict_consumer(consumer, tick: int) -> float:
 
 
 def predict_excess(tick: int) -> float:  # returns extra energy
+    energy_to_loss = 0
+
     solar_energy = 0
     for solar in psm.objects:
         if not solar.address[0].startswith("s"):
             continue
 
+        config = solar_config[solar.address[0]]
+
         if 0 < solar.power.now.generated < 15:
-            config = solar_config[solar.address[0]]
             forecast = psm.forecasts.sunEast if config[0] == "east" else psm.forecasts.sunWest
 
             if psm.tick < 25 or 50 < psm.tick < 75:
-                solar_energy += forecast[tick] * config[1][0] + config[1][1]
+                delta_energy = forecast[tick] * config[1][0] + config[1][1]
             elif 25 < psm.tick < 50 or psm.tick > 75:
-                solar_energy += forecast[tick] * config[2][0] + config[2][1]
+                delta_energy = forecast[tick] * config[2][0] + config[2][1]
         else:
-            solar_energy += min(solar.power.now.generated, 25)
+            delta_energy = min(solar.power.now.generated, 25)
+
+        # noinspection PyUnboundLocalVariable
+        solar_energy += delta_energy
+
+        if config[-1]:
+            energy_to_loss += delta_energy
 
     robo_energy = 0
     for robo in psm.objects:
         if not robo.address[0].startswith("r"):
             continue
 
+        config = solar_config[robo.address[0]]
+
         if 0 < robo.power.now.generated < 25:
-            config = solar_config[robo.address[0]]
             forecast = psm.forecasts.sunEast if config[0] == "east" else psm.forecasts.sunWest
 
             if psm.tick < 25 or 50 < psm.tick < 75:
-                solar_energy += forecast[tick] * config[1][0] + config[1][1]
+                delta_energy = forecast[tick] * config[1][0] + config[1][1]
             elif 25 < psm.tick < 50 or psm.tick > 75:
-                solar_energy += forecast[tick] * config[2][0] + config[2][1]
+                delta_energy = forecast[tick] * config[2][0] + config[2][1]
         else:
-            robo_energy += min(robo.power.now.generated, 25)
+            delta_energy = min(robo.power.now.generated, 25)
+
+        robo_energy += delta_energy
+
+        if config[-1]:
+            energy_to_loss += delta_energy
 
     consumer_energy = sum([predict_consumer(obj, tick) for obj in psm.objects])
 
-    return solar_energy + robo_energy - consumer_energy
+    return solar_energy + robo_energy - consumer_energy - calculate_loss(energy_to_loss)
 
 
 def automation():
@@ -198,21 +224,30 @@ def automation():
     excess = predict_excess(prediction_tick)
 
     # storage planning
-    if 20 <= prediction_tick <= 35 or 70 <= prediction_tick <= 85:
-        selected_storage = max(storages, key=lambda storage: storage_power(storage.temp.now))
-        energy = min(10, storage_power(selected_storage.temp.now), 60 - selected_storage.charge.now)
-
-        json_data["storage"][prediction_tick] = (selected_storage.address[0], energy)
-        excess -= energy
-    elif 40 <= prediction_tick <= 51 or 88 <= prediction_tick <= 99:
-        low_charge_storages = tuple(
+    if 20 <= prediction_tick <= 35 or 70 <= prediction_tick <= 83:
+        not_full_storages = tuple(
             filter(
-                lambda storage: 5 < storage.charge.now < 15,
+                lambda storage: storage.charge.now < 55,
                 storages
             )
         )
-        if low_charge_storages:
-            selected_storage = min(low_charge_storages, key=lambda storage: storage.charge.now)
+
+        if not_full_storages:
+            selected_storage = max(not_full_storages, key=lambda storage: storage_power(storage.temp.now))
+            energy = min(10, storage_power(selected_storage.temp.now), 60 - selected_storage.charge.now)
+
+            json_data["storage"][prediction_tick] = (selected_storage.address[0], energy)
+            excess -= energy
+    elif 36 <= prediction_tick <= 47 or 84 <= prediction_tick <= 95:
+        not_low_charge_storages = tuple(
+            filter(
+                lambda storage: storage.charge.now > 5,
+                storages
+            )
+        )
+
+        if not_low_charge_storages:
+            selected_storage = max(not_low_charge_storages, key=lambda storage: storage_power(storage.temp.now))
         else:
             selected_storage = max(storages, key=lambda storage: storage_power(storage.temp.now))
 
@@ -221,7 +256,7 @@ def automation():
         json_data["storage"][prediction_tick] = (selected_storage.address[0], -energy)
         excess += energy
 
-    excess -= 5  # threshold
+    excess += EXCESS_THRESHOLD
 
     # market
     if excess > 0:
@@ -260,19 +295,29 @@ for transaction in STORAGE_TRANSACTIONS:
         continue
 
     if transaction.amount < 0:
-        low_charge_storages = tuple(
+        not_low_charge_storages = tuple(
             filter(
-                lambda storage: 5 < storage.charge.now < 15,
+                lambda storage: storage.charge.now > 5,
                 storages
             )
         )
 
-        if low_charge_storages:
-            selected_storage = min(low_charge_storages, key=lambda storage: storage.charge.now)
+        if not_low_charge_storages:
+            selected_storage = max(not_low_charge_storages, key=lambda storage: storage_power(storage.temp.now))
         else:
             selected_storage = max(storages, key=lambda storage: storage_power(storage.temp.now))
     else:
-        selected_storage = max(storages, key=lambda storage: storage_power(storage.temp.now))
+        not_full_storages = tuple(
+            filter(
+                lambda storage: storage.charge.now < 55,
+                storages
+            )
+        )
+
+        if not not_full_storages:
+            continue
+
+        selected_storage = max(not_full_storages, key=lambda storage: storage_power(storage.temp.now))
 
     if transaction.amount > 0 and (power_delta > 0 if transaction.check else True):
         energy = min(transaction.amount, storage_power(selected_storage.temp.now), 60 - selected_storage.charge.now)
@@ -285,6 +330,7 @@ for transaction in STORAGE_TRANSACTIONS:
 
         psm.orders.discharge(selected_storage.address[0], energy)
         print(f"DIScharged {selected_storage.address[0]} by {energy}")
+
 
 # rotating suns
 for robo_solar, config in solar_config.items():
@@ -315,10 +361,13 @@ for robo_solar, config in solar_config.items():
             (psm.tick - day_2_start) / (day_2_end - day_2_start)
         )
 
+
 automation()
+
 
 with open(FILENAME, "w", encoding="utf-8") as file:
     json.dump(json_data, file, indent=4)
+
 
 psm.save_and_exit()
 # print(f"{psm.tick}:", psm.orders.get())

@@ -22,7 +22,7 @@ class Forecast:
 
 
 forecast_path = Path("forecasts/forecast_3_auto_1_and_2.csv")
-logs_path = Path("logs/logs_3_auto_1.json")
+logs_path = Path("logs/logs_final_1.json")
 ticks = range(100)
 
 
