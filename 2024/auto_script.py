@@ -100,9 +100,9 @@ STORAGE_TRANSACTIONS: List[StorageTransaction] = [
 
 
 solar_config = {
-    "s6": ("east", (1.38, -1), (1.45, -2.4), True),
-    "s9": ("east", (1.38, -1), (1.45, -2.4), False),
-    "r1": ("west", (2.68, -2.47), (2.47, -1.73), True),
+    "s6": ("west", (1.44, -3), (1.44, -3), True),
+    "sA": ("west", (1.44, -3), (1.44, -3), False),
+    "r4": ("east", (2.68, -2.47), (2.47, -1.73), True),
 }
 
 day_1_start = -1 + 6

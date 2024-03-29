@@ -33,10 +33,10 @@ def op(tick: int, action: int) -> float:  # action > 0 -> buy, action < 0 -> sel
 
 MARKET_OFFERS: List[MarketOffer] = [
     # закупка старт
-    MarketOffer(0, 13, 5, op(psm.tick, +1), False),
+    MarketOffer(0, 11, 5, op(psm.tick, +1), False),
 
     # продажа день 1
-    MarketOffer(14, 40, -10, op(psm.tick, -1), False),
+    MarketOffer(11, 40, -10, op(psm.tick, -1), False),
 
     # продажа дорого 1
     # MarketOffer(34, 46, -7, op(psm.tick, -1), False),
