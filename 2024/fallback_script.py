@@ -156,23 +156,46 @@ for transaction in STORAGE_TRANSACTIONS:
 
 
 # rotating suns
-for robo_solar in robo_solars:
-    if psm.tick not in range(day_1_start, day_1_end + 1) and psm.tick not in range(day_2_start, day_2_end + 1):
-        psm.orders.robot(robo_solar.address[0], robo_start_angle)
-    elif psm.tick in range(day_1_start, day_1_end + 1):
-        psm.orders.robot(
-            robo_solar.address[0],
-            robo_start_angle +
-            (robo_end_angle - robo_start_angle) *
-            (psm.tick - day_1_start) / (day_1_end - day_1_start)
-        )
-    elif psm.tick in range(day_2_start, day_2_end + 1):
-        psm.orders.robot(
-            robo_solar.address[0],
-            robo_start_angle +
-            (robo_end_angle - robo_start_angle) *
-            (psm.tick - day_2_start) / (day_2_end - day_2_start)
-        )
+robo_solar = "r9"
+robo_start_angle = 49 - 15
+robo_end_angle = 49 + 35
+if psm.tick not in range(day_1_start, day_1_end + 1) and psm.tick not in range(day_2_start, day_2_end + 1):
+    psm.orders.robot(robo_solar, robo_start_angle)
+elif psm.tick in range(day_1_start, day_1_end + 1):
+    psm.orders.robot(
+        robo_solar,
+        robo_start_angle +
+        (robo_end_angle - robo_start_angle) *
+        (psm.tick - day_1_start) / (day_1_end - day_1_start)
+    )
+elif psm.tick in range(day_2_start, day_2_end + 1):
+    psm.orders.robot(
+        robo_solar,
+        robo_start_angle +
+        (robo_end_angle - robo_start_angle) *
+        (psm.tick - day_2_start) / (day_2_end - day_2_start)
+    )
+
+robo_solar = "r6"
+robo_start_angle = 49 + 35
+robo_end_angle = 49 - 15
+if psm.tick not in range(day_1_start, day_1_end + 1) and psm.tick not in range(day_2_start, day_2_end + 1):
+    psm.orders.robot(robo_solar, robo_start_angle)
+elif psm.tick in range(day_1_start, day_1_end + 1):
+    psm.orders.robot(
+        robo_solar,
+        robo_start_angle +
+        (robo_end_angle - robo_start_angle) *
+        (psm.tick - day_1_start) / (day_1_end - day_1_start)
+    )
+elif psm.tick in range(day_2_start, day_2_end + 1):
+    psm.orders.robot(
+        robo_solar,
+        robo_start_angle +
+        (robo_end_angle - robo_start_angle) *
+        (psm.tick - day_2_start) / (day_2_end - day_2_start)
+    )
+
 
 with open(FILENAME, "w", encoding="utf-8") as file:
     json.dump(json_data, file, indent=4)

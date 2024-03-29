@@ -24,8 +24,7 @@ def predict_excess(tick: int) -> float:  # returns extra energy
     solar_energy = []
     robo_solar_energy = []
 
-    consumers = sum([predict_consumer(obj, tick) for obj in psm.objects])
-    print(len(psm.forecasts.hospital))
+    consumer_energy = sum([predict_consumer(obj, tick) for obj in psm.objects])
 
 
 def predict_wind_power() -> List[float]:
@@ -43,8 +42,8 @@ def predict_wind_power() -> List[float]:
 
         wind_coefficient = mean(
             [
-                wind_energy / wind_power_prediction[index] ** 3
-                for index, wind_energy in enumerate(wind_generator.power)
+                wind_energy / (wind_power_prediction[index] ** 3)
+                for index, wind_energy in enumerate(wind_generator.power.then + [wind_generator.power.now])  # TODO
             ]
         )
 

@@ -21,8 +21,8 @@ class Forecast:
     houseB: List[float]
 
 
-forecast_path = Path("forecasts/forecast_2_evening.csv")
-logs_path = Path("logs/logs_2_evening.json")
+forecast_path = Path("forecasts/forecast_3_auto_1_and_2.csv")
+logs_path = Path("logs/logs_3_auto_1.json")
 ticks = range(100)
 
 
@@ -168,27 +168,38 @@ def coefficients():
     plt.show()
 
 
-# # prints()
-# generators()
-# consumers()
-# # consumer_sum()
-# # test_on()
-# # coefficients()
+# prints()
+generators()
+consumers()
+# consumer_sum()
+# test_on()
+# coefficients()
+
+# psm = ips.from_log(logs_path, 87)
+#
+# for index, net in psm.networks.items():
+#     print("== Энергорайон", index, "==")
+#     print("Адрес:", net.location)          # [ (ID подстанции, № линии) ]
+#     print("Включен:", net.online) # bool
+#     print("Генерация:", net.upflow) # float
+#     print("Потребление:", net.downflow) # float
+#     print("Потери:", net.losses) # float
+#
+# print()
+#
+#
+# for receipt in psm.exchange:
+#     print("Контрагент:", receipt.source)    # "exchange" = оператор,    #     иначе  = другой игрок
+#     print("Объём:", receipt.flux)    # Плюс = покупка, минус = продажа
+#     print("Цена за МВт:", receipt.price)
+#     print("----------")
 
 
-for obj in psm.objects:
-    if obj.address[0] in ("a4", "s6", "s8"):
-        print(obj.address[0], obj.path, obj.power.then[87].generated)
-    if obj.address[0] in ("h6", "d6", "d7", "bF", "fB", "cA", "eD", "e5"):
-        print(obj.address[0], obj.path, obj.power.then[87].consumed)
 
-print()
-
-psm = ips.from_log(logs_path, 87)
-for index, net in psm.networks.items():
-    print("== Энергорайон", index, "==")
-    print("Адрес:", net.location)          # [ (ID подстанции, № линии) ]
-    print("Включен:", net.online) # bool
-    print("Генерация:", net.upflow) # float
-    print("Потребление:", net.downflow) # float
-    print("Потери:", net.losses) # float
+# print(psm.wind.then, psm.wind.now)
+#
+# print()
+#
+# for obj in psm.objects:
+#     if obj.type == "wind":
+#         print([energy.generated for energy in obj.power.then], obj.power.now.generated)
