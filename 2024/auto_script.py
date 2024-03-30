@@ -5,7 +5,7 @@ from math import exp
 import json
 
 psm = ips.init()
-# psm = ips.from_log("logs/logs_2_evening.json", 40)
+# psm = ips.from_log("logs/logs_2_evening.json", 32)
 
 EXTRA_MARKET = 0
 

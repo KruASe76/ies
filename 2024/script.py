@@ -7,7 +7,6 @@ import json
 psm = ips.init()
 # psm = ips.from_log("logs/logs_2_evening.json", 40)
 
-EXCESS_THRESHOLD = 0
 
 @dataclass
 class MarketOffer:
@@ -42,7 +41,7 @@ MARKET_OFFERS: List[MarketOffer] = [
     # MarketOffer(34, 46, -7, op(psm.tick, -1), False),
 
     # покупка ночь середина
-    #MarketOffer(40, 53, 5, op(psm.tick, +1), False),
+    # MarketOffer(40, 53, 5, op(psm.tick, +1), False),
     MarketOffer(53, 59, 8, op(psm.tick, +1), False),
 
     # продажа день 2
@@ -73,18 +72,19 @@ class StorageTransaction:
     amount: float  # зарядить - знак "+", разрядить - знак "-"
     check: bool = True
 
+
 STORAGE_TRANSACTIONS: List[StorageTransaction] = [
     # зарядка день 1
-    StorageTransaction(19, 32, 10, False),
+    # StorageTransaction(19, 32, 10, False),
 
     # разрядка ночь середина
-    StorageTransaction(42, 53, -10, False),
+    # StorageTransaction(42, 53, -10, False),
 
     # зарядка день 2
-    StorageTransaction(69, 82, 10, False),
+    # StorageTransaction(69, 82, 10, False),
 
     # разрядка финал
-    StorageTransaction(89, 100, -10, False),
+    # StorageTransaction(89, 100, -10, False),
 
     # стабильная зарядка
     # StorageTransaction(0, 100, -5, False),
