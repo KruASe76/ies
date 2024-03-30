@@ -22,7 +22,7 @@ class Forecast:
 
 
 forecast_path = Path("forecasts/forecast_3_auto_1_and_2.csv")
-logs_path = Path("logs/logs_4_auto_capitalism.json")
+logs_path = Path("logs/logs_4_meme.json")
 ticks = range(100)
 
 
@@ -168,12 +168,12 @@ def coefficients():
     plt.show()
 
 
-# # prints()
-# generators()
-# consumers()
-# # consumer_sum()
-# # test_on()
-# # coefficients()
+# prints()
+generators()
+consumers()
+# consumer_sum()
+# test_on()
+# coefficients()
 
 # psm = ips.from_log(logs_path, 87)
 #
@@ -188,15 +188,15 @@ def coefficients():
 # print()
 #
 #
-for tick in range(19, 23):
-    print(f"=== TICK {tick} ===")
-    psm = ips.from_log(logs_path, tick)
-
-    for receipt in psm.exchange:
-        print("Контрагент:", receipt.source)    # "exchange" = оператор,    #     иначе  = другой игрок
-        print("Объём:", receipt.flux)    # Плюс = покупка, минус = продажа
-        print("Цена за МВт:", receipt.price)
-        print("----------")
+# for tick in range(19, 23):
+#     print(f"=== TICK {tick} ===")
+#     psm = ips.from_log(logs_path, tick)
+#
+#     for receipt in psm.exchange:
+#         print("Контрагент:", receipt.source)    # "exchange" = оператор,    #     иначе  = другой игрок
+#         print("Объём:", receipt.flux)    # Плюс = покупка, минус = продажа
+#         print("Цена за МВт:", receipt.price)
+#         print("----------")
 
 
 
@@ -209,7 +209,6 @@ for tick in range(19, 23):
 #         print([energy.generated for energy in obj.power.then], obj.power.now.generated)
 
 
-psm = ips.from_log(logs_path, 87)
 for obj in psm.objects:
     if obj.type == "storage":
         print(f"=== {obj.address[0]} ===")

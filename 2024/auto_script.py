@@ -7,7 +7,7 @@ import json
 psm = ips.init()
 # psm = ips.from_log("logs/logs_2_evening.json", 40)
 
-EXCESS_THRESHOLD = 0
+EXTRA_MARKET = 0
 
 
 def op(tick: int, action: int) -> float:  # action > 0 -> buy, action < 0 -> sell
@@ -100,9 +100,10 @@ STORAGE_TRANSACTIONS: List[StorageTransaction] = [
 
 
 solar_config = {
-    "s6": ("west", (1.44, -3), (1.44, -3), True),
-    "sA": ("west", (1.44, -3), (1.44, -3), False),
-    "r4": ("east", (2.68, -2.47), (2.47, -1.73), True),
+    "s6": ("east", (1.44, -3), (1.44, -3), True),
+    "r7": ("west", (2.68, -2.47), (2.47, -1.73), False),
+    "r9": ("west", (2.68, -2.47), (2.47, -1.73), False),
+    "rA": ("east", (2.68, -2.47), (2.47, -1.73), True),
 }
 
 day_1_start = -1 + 6
@@ -116,7 +117,8 @@ FILENAME = "chekanshchiki_temp.json"
 if psm.tick == 0:
     json_data = {
         "market": [0] * 110,
-        "storage": [None] * 110
+        "storage": [None] * 110,
+        "last_storage": "",
     }
 else:
     with open(FILENAME, "r", encoding="utf-8") as file:
@@ -165,51 +167,65 @@ def predict_consumer(consumer, tick: int) -> float:
 
 def predict_excess(tick: int) -> float:  # returns extra energy
     energy_to_loss = 0
-
     solar_energy = 0
+    robo_energy = 0
+
     for solar in psm.objects:
         if not solar.address[0].startswith("s"):
             continue
 
         config = solar_config[solar.address[0]]
+        forecast = psm.forecasts.sunEast if config[0] == "east" else psm.forecasts.sunWest
 
         if 0 < solar.power.now.generated < 15:
-            forecast = psm.forecasts.sunEast if config[0] == "east" else psm.forecasts.sunWest
-
-            if psm.tick < 25 or 50 < psm.tick < 75:
+            if tick < 25 or 50 < tick < 75:
                 delta_energy = forecast[tick] * config[1][0] + config[1][1]
-            elif 25 < psm.tick < 50 or psm.tick > 75:
+            elif 25 < tick < 50 or tick > 75:
                 delta_energy = forecast[tick] * config[2][0] + config[2][1]
         else:
-            delta_energy = min(solar.power.now.generated, 25)
+            delta_energy = solar.power.now.generated
+
+            if 25 < tick < 50 or tick > 75 and solar.power.now.generated > 0:  # trying to predict decrease start
+                energy_prediction = forecast[tick] * config[2][0] + config[2][1]
+                if energy_prediction < 15:
+                    delta_energy = energy_prediction
 
         # noinspection PyUnboundLocalVariable
+        delta_energy = min(max(delta_energy, 0), 15)
         solar_energy += delta_energy
 
         if config[-1]:
             energy_to_loss += delta_energy
 
-    robo_energy = 0
     for robo in psm.objects:
         if not robo.address[0].startswith("r"):
             continue
 
         config = solar_config[robo.address[0]]
+        forecast = psm.forecasts.sunEast if config[0] == "east" else psm.forecasts.sunWest
 
         if 0 < robo.power.now.generated < 25:
-            forecast = psm.forecasts.sunEast if config[0] == "east" else psm.forecasts.sunWest
-
-            if psm.tick < 25 or 50 < psm.tick < 75:
+            if tick < 25 or 50 < tick < 75:
                 delta_energy = forecast[tick] * config[1][0] + config[1][1]
-            elif 25 < psm.tick < 50 or psm.tick > 75:
+            elif 25 < tick < 50 or tick > 75:
                 delta_energy = forecast[tick] * config[2][0] + config[2][1]
         else:
-            delta_energy = min(robo.power.now.generated, 25)
+            delta_energy = robo.power.now.generated
 
+            if 25 < tick < 50 or tick > 75 and robo.power.now.generated > 0:  # trying to predict decrease start
+                energy_prediction = forecast[tick] * config[2][0] + config[2][1]
+                if energy_prediction < 25:
+                    delta_energy = energy_prediction
+
+        # noinspection PyUnboundLocalVariable
+        delta_energy = min(max(delta_energy, 0), 25)
         robo_energy += delta_energy
 
         if config[-1]:
             energy_to_loss += delta_energy
+
+    if energy_to_loss == 50:
+        energy_to_loss = 40
 
     consumer_energy = sum([predict_consumer(obj, tick) for obj in psm.objects])
 
@@ -225,39 +241,27 @@ def automation():
     excess = predict_excess(prediction_tick)
 
     # storage planning
-    if 20 <= prediction_tick <= 35 or 70 <= prediction_tick <= 83:
-        not_full_storages = tuple(
-            filter(
-                lambda storage: storage.charge.now < 55,
-                storages
-            )
-        )
+    if 19 <= prediction_tick <= 30 or 67 <= prediction_tick <= 78:  # generation peak
+        for storage in storages:
+            if storage.address[0] != json_data["last_storage"]:
+                energy = min(10., storage_power(storage.temp.now), 60 - storage.charge.now)
 
-        if not_full_storages:
-            selected_storage = max(not_full_storages, key=lambda storage: storage_power(storage.temp.now))
-            energy = min(10, storage_power(selected_storage.temp.now), 60 - selected_storage.charge.now)
+                json_data["storage"][storage_planning_tick] = (storage.address[0], energy)
+                excess -= energy
 
-            json_data["storage"][storage_planning_tick] = (selected_storage.address[0], energy)
-            excess -= energy
-    elif 36 <= prediction_tick <= 47 or 84 <= prediction_tick <= 95:
-        not_low_charge_storages = tuple(
-            filter(
-                lambda storage: storage.charge.now > 5,
-                storages
-            )
-        )
+                json_data["last_storage"] = storage.address[0]
+    elif 36 <= psm.tick <= 47 or 84 <= psm.tick <= 95:  # market price peak
+        for storage in storages:
+            if storage.address[0] != json_data["last_storage"]:
+                energy = min(10., storage_power(storage.temp.now), storage.charge.now)
 
-        if not_low_charge_storages:
-            selected_storage = max(not_low_charge_storages, key=lambda storage: storage_power(storage.temp.now))
-        else:
-            selected_storage = max(storages, key=lambda storage: storage_power(storage.temp.now))
+                json_data["storage"][storage_planning_tick] = (storage.address[0], -energy)
+                excess += energy
 
-        energy = min(10, storage_power(selected_storage.temp.now), selected_storage.charge.now)
+                json_data["last_storage"] = storage.address[0]
 
-        json_data["storage"][storage_planning_tick] = (selected_storage.address[0], -energy)
-        excess += energy
-
-    excess += EXCESS_THRESHOLD
+    excess -= EXTRA_MARKET
+    excess = min(max(excess, -65), 65)
 
     # market
     if excess > 0:
@@ -274,7 +278,7 @@ def automation():
         if energy > 0:
             psm.orders.charge(storage_address, energy)
         else:
-            (psm.orders.discharge(storage_address, -energy))
+            psm.orders.discharge(storage_address, -energy)
 
 
 for offer in MARKET_OFFERS:
@@ -368,6 +372,9 @@ automation()
 
 with open(FILENAME, "w", encoding="utf-8") as file:
     json.dump(json_data, file, indent=4)
+
+
+print(json_data["market"])
 
 
 psm.save_and_exit()
